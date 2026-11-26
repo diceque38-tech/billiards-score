@@ -85,36 +85,30 @@ export default function App() {
     };
   });
 
-  return <div className="app-shell">
-    <main>
-      <header>
-        <div><div className="brand"><Trophy size={18}/><span>BILLIARDS</span></div><h1>スコア管理</h1></div>
-        <input className="date" type="date" value={date} onChange={e=>setDate(e.target.value)}/>
-      </header>
+  return <div className="app-shell"><main>
+    <header><div><div className="brand"><Trophy size={18}/><span>BILLIARDS</span></div><h1>スコア管理</h1></div><input className="date" type="date" value={date} onChange={e=>setDate(e.target.value)}/></header>
+    <nav>
+      <button onClick={()=>setTab("play")} className={tab==="play"?"active":""}>対戦</button>
+      <button onClick={()=>setTab("history")} className={tab==="history"?"active":""}>履歴</button>
+      <button aria-label="設定" title="設定" onClick={()=>setTab("settings")} className={`settings ${tab==="settings"?"active":""}`}><Settings size={19}/></button>
+    </nav>
 
-      <nav>
-        <button onClick={()=>setTab("play")} className={tab==="play" ? "active" : ""}>対戦</button>
-        <button onClick={()=>setTab("history")} className={tab==="history" ? "active" : ""}>履歴</button>
-        <button aria-label="設定" title="設定" onClick={()=>setTab("settings")} className={`settings ${tab==="settings" ? "active" : ""}`}><Settings size={19}/></button>
-      </nav>
+    {tab === "play" && <div>
+      <section><div className="hint">対戦する2人をタップ</div><div className="three">{PLAYERS.map(p=><button key={p.id} onClick={()=>choose(p.id)} className={selected.includes(p.id)?"selected":""}>{p.name}</button>)}</div></section>
+      {active.length === 2 && <>
+        <section><div className="hint">勝者をタップ</div><div className="two">{active.map(p=><button key={p.id} onClick={()=>setWinner(p.id)} className={winner===p.id?"winner":""}>{winner===p.id?"★ ":""}{p.name}</button>)}</div></section>
+        <section><div className="hint center">勝者のポイント（最低3）</div><div className="counter"><button onClick={()=>setPoints(Math.max(3,points-1))}><Minus size={30}/></button><strong>{points}</strong><button className="plus" onClick={()=>setPoints(points+1)}><Plus size={32}/></button></div><div className="two result"><div>{PLAYERS.find(p=>p.id===winner)?.name}<b>+{points}</b></div><div>{loser?.name}<b>-{points}</b></div></div></section>
+        <button onClick={registerGame} className="save"><Plus size={20}/>この結果を登録</button>
+      </>}
+      <div className="today"><h2>今日の成績</h2>{todayGames.length===0?<div className="empty">まだ記録はありません</div>:todayGames.map((g,i)=><div key={g.id} className="game"><span className="game-no">#{todayGames.length-i}</span><div><span className="muted">勝者 </span><b className="positive">{g.winnerName}（+{g.points}PT）</b><span className="muted loser-label">敗者 </span><b>{g.loserName}</b></div><button className="trash" onClick={()=>setGames(old=>old.filter(x=>x.id!==g.id))}><Trash2 size={17}/></button></div>)}</div>
+    </div>}
 
-      {tab === "play" && <div>
-        <section>
-          <div className="hint">対戦する2人をタップ</div>
-          <div className="three">{PLAYERS.map(p => <button key={p.id} onClick={()=>choose(p.id)} className={selected.includes(p.id) ? "selected" : ""}>{p.name}</button>)}</div>
-          {active.length !== 2 && <div className="warning">対戦者を2人選んでください</div>}
-        </section>
-        {active.length === 2 && <>
-          <section><div className="hint">勝者をタップ</div><div className="two">{active.map(p=><button key={p.id} onClick={()=>setWinner(p.id)} className={winner===p.id ? "winner" : ""}>{winner===p.id ? "★ " : ""}{p.name}</button>)}</div></section>
-          <section><div className="hint center">勝者のポイント（最低3）</div><div className="counter"><button onClick={()=>setPoints(Math.max(3,points-1))}><Minus size={30}/></button><strong>{points}</strong><button className="plus" onClick={()=>setPoints(points+1)}><Plus size={32}/></button></div><div className="two result"><div>{PLAYERS.find(p=>p.id===winner)?.name}<b>+{points}</b></div><div>{loser?.name}<b>-{points}</b></div></div></section>
-          <button onClick={registerGame} className="save"><Plus size={20}/>この結果を登録</button>
-        </>}
-        <div className="today"><h2>今日の成績</h2>{todayGames.length===0 ? <div className="empty">まだ記録はありません</div> : todayGames.map((g,i)=><div key={g.id} className="game"><span className="game-no">#{todayGames.length-i}</span><div><span className="muted">勝者 </span><b className="positive">{g.winnerName}（+{g.points}PT）</b><span className="muted loser-label">敗者 </span><b>{g.loserName}</b></div><button className="trash" onClick={()=>setGames(old=>old.filter(x=>x.id!==g.id))}><Trash2 size={17}/></button></div>)}</div>
-      </div>}
+    {tab === "history" && <div className="history"><h2>日別成績</h2>{allDates.length===0?<div className="empty">まだ記録はありません</div>:allDates.map(d=><section key={d}><h3>{d}</h3><div className="stats">{statsForDate(d).map(s=><div key={s.id} className="stat-row"><b>{s.name}</b><span>{s.wins}勝 / {s.losses}敗</span><b className={s.points>0?"positive":s.points<0?"negative":""}>{signed(s.points)}pt</b></div>)}</div></section>)}</div>}
 
-      {tab === "history" && <div className="history"><h2>日別成績</h2>{allDates.length===0 ? <div className="empty">まだ記録はありません</div> : allDates.map(d => <section key={d}><h3>{d}</h3><div className="stats">{statsForDate(d).map(s=><div key={s.id} className="stat-row"><b>{s.name}</b><span>{s.wins}勝 / {s.losses}敗</span><b className={s.points>0?"positive":s.points<0?"negative":""}>{signed(s.points)}pt</b></div>)}</div></section>)}</div>}
-
-      {tab === "settings" && <div><section><h2>過去成績を追加</h2><p className="note">日付ごとに3人の勝敗数と合計POINTを入力します。</p><input className="date past-date" type="date" value={pastDate} onChange={e=>setPastDate(e.target.value)}/><div className="past-list">{PLAYERS.map(p=><div key={p.id} className="past-player"><b>{p.name}</b><div className="past-grid">{[["wins","勝"],["losses","敗"],["points","POINT"]].map(([field,label])=><label key={field}>{label}<input type="number" min={field!=="points"?"0":undefined} value={pastInput[p.id][field]} onChange={e=>setPastInput(old=>({...old,[p.id]:{...old[p.id],[field]:Number(e.target.value)}}))}/></label>)}</div></div>)}</div><div className={`sum ${pastPointTotal===0?"ok":"bad"}`}>3人のPOINT合計：{signed(pastPointTotal)}PT {pastPointTotal===0?"✓":"（0PTになるよう確認）"}</div><button disabled={pastPointTotal!==0} onClick={registerPast} className="save past-save">この日の過去成績を登録</button></section></div>}
-    </main>
-  </div>;
+    {tab === "settings" && <div>
+      <section><h2>過去成績を追加</h2><p className="note">日付ごとに3人の勝敗数と合計POINTを入力します。</p><input className="date past-date" type="date" value={pastDate} onChange={e=>setPastDate(e.target.value)}/><div className="past-list">{PLAYERS.map(p=><div key={p.id} className="past-player"><b>{p.name}</b><div className="past-grid">{[["wins","勝"],["losses","敗"],["points","POINT"]].map(([field,label])=><label key={field}>{label}<input type="number" min={field!=="points"?"0":undefined} value={pastInput[p.id][field]} onChange={e=>setPastInput(old=>({...old,[p.id]:{...old[p.id],[field]:Number(e.target.value)}}))}/></label>)}</div></div>)}</div><div className={`sum ${pastPointTotal===0?"ok":"bad"}`}>3人のPOINT合計：{signed(pastPointTotal)}PT {pastPointTotal===0?"✓":"（0PTになるよう確認）"}</div><button disabled={pastPointTotal!==0} onClick={registerPast} className="save past-save">この日の過去成績を登録</button></section>
+      {pastRecords.length>0&&<section><h2>登録済みの過去成績</h2><div className="past-records">{pastRecords.map(r=><div key={r.id} className="past-record"><div><b>{r.date}</b><p>{PLAYERS.map(p=>`${p.name} ${r.stats[p.id].wins}勝/${r.stats[p.id].losses}敗 ${signed(r.stats[p.id].points)}PT`).join(" ・ ")}</p></div><button aria-label={`${r.date}の過去成績を削除`} onClick={()=>{if(window.confirm(`${r.date}の過去成績を削除しますか？`))setPastRecords(old=>old.filter(x=>x.id!==r.id));}}><Trash2 size={18}/></button></div>)}</div></section>}
+      <section className="danger-zone"><h2>データ管理</h2><p className="note">テストで登録したゲームと過去成績をすべて削除します。</p><button className="delete-all" onClick={()=>{if(window.confirm("ゲーム記録と過去成績をすべて削除しますか？この操作は元に戻せません。")){setGames([]);setPastRecords([]);setSelected([]);setWinner("");setPoints(3);}}}><Trash2 size={18}/>テストデータをすべて削除</button></section>
+    </div>}
+  </main></div>;
 }
