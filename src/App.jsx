@@ -1,114 +1,23 @@
-import React, { useMemo, useState } from "react";
-import { Plus, Minus, Trophy, Trash2, Settings } from "lucide-react";
-
-const PLAYERS = [
-  { id: "p1", name: "大島" },
-  { id: "p2", name: "安部" },
-  { id: "p3", name: "宮本" },
-];
-const today = () => new Date().toLocaleDateString("sv-SE");
-const signed = n => n > 0 ? `+${n}` : `${n}`;
-const zeroPast = () => ({
-  p1: { wins: 0, losses: 0, points: 0 },
-  p2: { wins: 0, losses: 0, points: 0 },
-  p3: { wins: 0, losses: 0, points: 0 },
-});
-
-export default function App() {
-  const [date, setDate] = useState(today());
-  const [selected, setSelected] = useState([]);
-  const [winner, setWinner] = useState("");
-  const [points, setPoints] = useState(3);
-  const [games, setGames] = useState([]);
-  const [pastRecords, setPastRecords] = useState([]);
-  const [pastDate, setPastDate] = useState(today());
-  const [pastInput, setPastInput] = useState(zeroPast());
-  const [tab, setTab] = useState("play");
-
-  const active = PLAYERS.filter(p => selected.includes(p.id));
-  const loser = active.find(p => p.id !== winner);
-  const todayGames = useMemo(() => games.filter(g => g.date === date).slice().reverse(), [games, date]);
-  const pastPointTotal = Object.values(pastInput).reduce((sum, x) => sum + Number(x.points || 0), 0);
-
-  const choose = id => {
-    setSelected(current => {
-      if (current.includes(id)) {
-        setWinner("");
-        return current.filter(x => x !== id);
-      }
-      if (current.length < 2) {
-        const next = [...current, id];
-        if (next.length === 2) setWinner(next[0]);
-        return next;
-      }
-      const next = [current[1], id];
-      setWinner(next[0]);
-      return next;
-    });
-  };
-
-  const registerGame = () => {
-    if (active.length !== 2 || !winner || !loser) return;
-    const winnerPlayer = PLAYERS.find(p => p.id === winner);
-    setGames(old => [...old, {
-      id: `${Date.now()}-${Math.random()}`,
-      date,
-      winnerId: winner,
-      winnerName: winnerPlayer?.name || "",
-      loserId: loser.id,
-      loserName: loser.name,
-      points: Number(points),
-      createdAt: Date.now(),
-    }]);
-    setPoints(3);
-  };
-
-  const registerPast = () => {
-    if (pastPointTotal !== 0) return;
-    setPastRecords(old => [{ id: `${Date.now()}-past`, date: pastDate, stats: pastInput }, ...old]);
-    setPastInput(zeroPast());
-  };
-
-  const allDates = useMemo(() => [...new Set([...games.map(g => g.date), ...pastRecords.map(r => r.date)])].sort((a,b) => b.localeCompare(a)), [games, pastRecords]);
-
-  const statsForDate = d => PLAYERS.map(p => {
-    const dayGames = games.filter(g => g.date === d);
-    const past = pastRecords.filter(r => r.date === d);
-    const pastWins = past.reduce((s,r) => s + Number(r.stats[p.id]?.wins || 0), 0);
-    const pastLosses = past.reduce((s,r) => s + Number(r.stats[p.id]?.losses || 0), 0);
-    const pastPoints = past.reduce((s,r) => s + Number(r.stats[p.id]?.points || 0), 0);
-    return {
-      ...p,
-      wins: pastWins + dayGames.filter(g => g.winnerId === p.id).length,
-      losses: pastLosses + dayGames.filter(g => g.loserId === p.id).length,
-      points: pastPoints + dayGames.reduce((s,g) => g.winnerId === p.id ? s + g.points : g.loserId === p.id ? s - g.points : s, 0),
-    };
-  });
-
-  return <div className="app-shell"><main>
-    <header><div><div className="brand"><Trophy size={18}/><span>BILLIARDS</span></div><h1>スコア管理</h1></div><input className="date" type="date" value={date} onChange={e=>setDate(e.target.value)}/></header>
-    <nav>
-      <button onClick={()=>setTab("play")} className={tab==="play"?"active":""}>対戦</button>
-      <button onClick={()=>setTab("history")} className={tab==="history"?"active":""}>履歴</button>
-      <button aria-label="設定" title="設定" onClick={()=>setTab("settings")} className={`settings ${tab==="settings"?"active":""}`}><Settings size={19}/></button>
-    </nav>
-
-    {tab === "play" && <div>
-      <section><div className="hint">対戦する2人をタップ</div><div className="three">{PLAYERS.map(p=><button key={p.id} onClick={()=>choose(p.id)} className={selected.includes(p.id)?"selected":""}>{p.name}</button>)}</div></section>
-      {active.length === 2 && <>
-        <section><div className="hint">勝者をタップ</div><div className="two">{active.map(p=><button key={p.id} onClick={()=>setWinner(p.id)} className={winner===p.id?"winner":""}>{winner===p.id?"★ ":""}{p.name}</button>)}</div></section>
-        <section><div className="hint center">勝者のポイント（最低3）</div><div className="counter"><button onClick={()=>setPoints(Math.max(3,points-1))}><Minus size={30}/></button><strong>{points}</strong><button className="plus" onClick={()=>setPoints(points+1)}><Plus size={32}/></button></div><div className="two result"><div>{PLAYERS.find(p=>p.id===winner)?.name}<b>+{points}</b></div><div>{loser?.name}<b>-{points}</b></div></div></section>
-        <button onClick={registerGame} className="save"><Plus size={20}/>この結果を登録</button>
-      </>}
-      <div className="today"><h2>今日の成績</h2>{todayGames.length===0?<div className="empty">まだ記録はありません</div>:todayGames.map((g,i)=><div key={g.id} className="game"><span className="game-no">#{todayGames.length-i}</span><div><span className="muted">勝者 </span><b className="positive">{g.winnerName}（+{g.points}PT）</b><span className="muted loser-label">敗者 </span><b>{g.loserName}</b></div><button className="trash" onClick={()=>setGames(old=>old.filter(x=>x.id!==g.id))}><Trash2 size={17}/></button></div>)}</div>
-    </div>}
-
-    {tab === "history" && <div className="history"><h2>日別成績</h2>{allDates.length===0?<div className="empty">まだ記録はありません</div>:allDates.map(d=><section key={d}><h3>{d}</h3><div className="stats">{statsForDate(d).map(s=><div key={s.id} className="stat-row"><b>{s.name}</b><span>{s.wins}勝 / {s.losses}敗</span><b className={s.points>0?"positive":s.points<0?"negative":""}>{signed(s.points)}pt</b></div>)}</div></section>)}</div>}
-
-    {tab === "settings" && <div>
-      <section><h2>過去成績を追加</h2><p className="note">日付ごとに3人の勝敗数と合計POINTを入力します。</p><input className="date past-date" type="date" value={pastDate} onChange={e=>setPastDate(e.target.value)}/><div className="past-list">{PLAYERS.map(p=><div key={p.id} className="past-player"><b>{p.name}</b><div className="past-grid">{[["wins","勝"],["losses","敗"],["points","POINT"]].map(([field,label])=><label key={field}>{label}<input type="number" min={field!=="points"?"0":undefined} value={pastInput[p.id][field]} onChange={e=>setPastInput(old=>({...old,[p.id]:{...old[p.id],[field]:Number(e.target.value)}}))}/></label>)}</div></div>)}</div><div className={`sum ${pastPointTotal===0?"ok":"bad"}`}>3人のPOINT合計：{signed(pastPointTotal)}PT {pastPointTotal===0?"✓":"（0PTになるよう確認）"}</div><button disabled={pastPointTotal!==0} onClick={registerPast} className="save past-save">この日の過去成績を登録</button></section>
-      {pastRecords.length>0&&<section><h2>登録済みの過去成績</h2><div className="past-records">{pastRecords.map(r=><div key={r.id} className="past-record"><div><b>{r.date}</b><p>{PLAYERS.map(p=>`${p.name} ${r.stats[p.id].wins}勝/${r.stats[p.id].losses}敗 ${signed(r.stats[p.id].points)}PT`).join(" ・ ")}</p></div><button aria-label={`${r.date}の過去成績を削除`} onClick={()=>{if(window.confirm(`${r.date}の過去成績を削除しますか？`))setPastRecords(old=>old.filter(x=>x.id!==r.id));}}><Trash2 size={18}/></button></div>)}</div></section>}
-      <section className="danger-zone"><h2>データ管理</h2><p className="note">テストで登録したゲームと過去成績をすべて削除します。</p><button className="delete-all" onClick={()=>{if(window.confirm("ゲーム記録と過去成績をすべて削除しますか？この操作は元に戻せません。")){setGames([]);setPastRecords([]);setSelected([]);setWinner("");setPoints(3);}}}><Trash2 size={18}/>テストデータをすべて削除</button></section>
-    </div>}
-  </main></div>;
-}
+import React,{useMemo,useState}from"react";
+import{Plus,Minus,Trophy,Trash2,Settings}from"lucide-react";
+const PLAYERS=[{id:"p1",name:"大島"},{id:"p2",name:"安部"},{id:"p3",name:"宮本"}];
+const today=()=>new Date().toLocaleDateString("sv-SE");
+const signed=n=>n>0?`+${n}`:`${n}`;
+const emptyPast=()=>({p1:{wins:"",losses:"",points:""},p2:{wins:"",losses:"",points:""},p3:{wins:"",losses:"",points:""}});
+export default function App(){
+ const[date,setDate]=useState(today()),[selected,setSelected]=useState([]),[winner,setWinner]=useState(""),[points,setPoints]=useState(3),[games,setGames]=useState([]),[pastRecords,setPastRecords]=useState([]),[pastDate,setPastDate]=useState(today()),[pastInput,setPastInput]=useState(emptyPast()),[tab,setTab]=useState("play");
+ const active=PLAYERS.filter(p=>selected.includes(p.id)),loser=active.find(p=>p.id!==winner);
+ const todayGames=useMemo(()=>games.filter(g=>g.date===date).slice().reverse(),[games,date]);
+ const pastPointTotal=Object.values(pastInput).reduce((s,x)=>s+Number(x.points||0),0);
+ const choose=id=>setSelected(cur=>{if(cur.includes(id)){setWinner("");return cur.filter(x=>x!==id)}if(cur.length<2){const n=[...cur,id];if(n.length===2)setWinner(n[0]);return n}const n=[cur[1],id];setWinner(n[0]);return n});
+ const registerGame=()=>{if(active.length!==2||!winner||!loser)return;const w=PLAYERS.find(p=>p.id===winner);setGames(old=>[...old,{id:`${Date.now()}-${Math.random()}`,date,winnerId:winner,winnerName:w?.name||"",loserId:loser.id,loserName:loser.name,points:Number(points)}]);setPoints(3)};
+ const registerPast=()=>{if(pastPointTotal!==0)return;const stats=Object.fromEntries(PLAYERS.map(p=>[p.id,{wins:Number(pastInput[p.id].wins||0),losses:Number(pastInput[p.id].losses||0),points:Number(pastInput[p.id].points||0)}]));setPastRecords(old=>[{id:`${Date.now()}-past`,date:pastDate,stats},...old]);setPastInput(emptyPast())};
+ const allDates=useMemo(()=>[...new Set([...games.map(g=>g.date),...pastRecords.map(r=>r.date)])].sort((a,b)=>b.localeCompare(a)),[games,pastRecords]);
+ const statsForDate=d=>PLAYERS.map(p=>{const dg=games.filter(g=>g.date===d),pr=pastRecords.filter(r=>r.date===d);return{...p,wins:pr.reduce((s,r)=>s+Number(r.stats[p.id]?.wins||0),0)+dg.filter(g=>g.winnerId===p.id).length,losses:pr.reduce((s,r)=>s+Number(r.stats[p.id]?.losses||0),0)+dg.filter(g=>g.loserId===p.id).length,points:pr.reduce((s,r)=>s+Number(r.stats[p.id]?.points||0),0)+dg.reduce((s,g)=>g.winnerId===p.id?s+g.points:g.loserId===p.id?s-g.points:s,0)}});
+ return <div className="min-h-screen bg-slate-950 pb-20 text-white"><main className="mx-auto max-w-lg px-3 py-4">
+ <header className="mb-4 flex items-center justify-between"><div><div className="flex items-center gap-2 text-emerald-400"><Trophy size={18}/><span className="text-xs font-bold">BILLIARDS</span></div><h1 className="text-xl font-black">スコア管理</h1></div><input type="date" value={date} onChange={e=>setDate(e.target.value)} className="h-11 w-36 rounded-xl border border-slate-600 bg-slate-900 px-2 text-white [color-scheme:dark]"/></header>
+ <nav className="sticky top-2 z-20 mb-4 flex h-12 w-full gap-1 rounded-xl bg-slate-900 p-1 shadow-xl"><button onClick={()=>setTab("play")} className={`flex-1 rounded-lg font-bold ${tab==="play"?"bg-emerald-500 text-slate-950":"text-slate-300"}`}>対戦</button><button onClick={()=>setTab("history")} className={`flex-1 rounded-lg font-bold ${tab==="history"?"bg-emerald-500 text-slate-950":"text-slate-300"}`}>履歴</button><button onClick={()=>setTab("settings")} className={`flex w-11 items-center justify-center rounded-lg ${tab==="settings"?"bg-emerald-500 text-slate-950":"text-slate-400"}`}><Settings size={19}/></button></nav>
+ {tab==="play"&&<div className="space-y-4"><section className="rounded-3xl border border-slate-800 bg-slate-900 p-4"><div className="mb-3 text-xs font-bold text-slate-400">対戦する2人をタップ</div><div className="flex gap-2">{PLAYERS.map(p=><button key={p.id} onClick={()=>choose(p.id)} className={`min-h-16 min-w-0 flex-1 rounded-2xl border font-black ${selected.includes(p.id)?"border-emerald-400 bg-emerald-500 text-slate-950":"border-slate-700 bg-slate-950"}`}>{p.name}</button>)}</div></section>{active.length===2&&<><section className="rounded-3xl border border-slate-800 bg-slate-900 p-4"><div className="mb-3 text-xs font-bold text-slate-400">勝者をタップ</div><div className="grid grid-cols-2 gap-3">{active.map(p=><button key={p.id} onClick={()=>setWinner(p.id)} className={`min-h-16 rounded-2xl border text-lg font-black ${winner===p.id?"border-yellow-300 bg-yellow-400 text-slate-950":"border-slate-700 bg-slate-950"}`}>{winner===p.id?"★ ":""}{p.name}</button>)}</div></section><section className="rounded-3xl border border-slate-800 bg-slate-900 p-4"><div className="text-center text-xs font-bold text-slate-400">勝者のポイント（最低3）</div><div className="mt-3 grid grid-cols-[72px_1fr_72px] items-center gap-3"><button onClick={()=>setPoints(Math.max(3,points-1))} className="flex h-16 items-center justify-center rounded-2xl bg-slate-800"><Minus size={30}/></button><div className="text-center text-6xl font-black text-emerald-400">{points}</div><button onClick={()=>setPoints(points+1)} className="flex h-16 items-center justify-center rounded-2xl bg-emerald-500 text-slate-950"><Plus size={32}/></button></div><div className="mt-3 grid grid-cols-2 gap-2 text-center"><div className="rounded-xl bg-emerald-950 p-2">{PLAYERS.find(p=>p.id===winner)?.name}<b className="block text-xl text-emerald-400">+{points}</b></div><div className="rounded-xl bg-rose-950 p-2">{loser?.name}<b className="block text-xl text-rose-400">-{points}</b></div></div></section><button onClick={registerGame} className="flex h-16 w-full items-center justify-center rounded-2xl bg-emerald-500 text-lg font-black text-slate-950"><Plus className="mr-2"/>この結果を登録</button></>}<section><h2 className="mb-2 px-1 text-sm font-bold text-slate-400">今日の成績</h2>{todayGames.length===0?<div className="rounded-2xl bg-slate-900 py-8 text-center text-slate-500">まだ記録はありません</div>:todayGames.map((g,i)=><div key={g.id} className="mb-2 flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-3"><span className="w-7 text-xs text-slate-500">#{todayGames.length-i}</span><div className="min-w-0 flex-1 text-sm"><span className="text-xs text-slate-500">勝者 </span><b className="text-emerald-400">{g.winnerName}（+{g.points}PT）</b><span className="ml-3 text-xs text-slate-500">敗者 </span><b>{g.loserName}</b></div><button onClick={()=>setGames(old=>old.filter(x=>x.id!==g.id))} className="p-2 text-slate-600"><Trash2 size={17}/></button></div>)}</section></div>}
+ {tab==="history"&&<div className="space-y-4"><h2 className="px-1 text-sm font-bold text-slate-300">日別成績</h2>{allDates.length===0?<div className="rounded-2xl bg-slate-900 py-10 text-center text-slate-500">まだ記録はありません</div>:allDates.map(d=><section key={d} className="rounded-3xl border border-slate-800 bg-slate-900 p-4"><h3 className="mb-3 text-lg font-black">{d}</h3><div className="space-y-2">{(()=>{const dayStats=statsForDate(d); const maxWins=Math.max(...dayStats.map(s=>s.wins)); return dayStats.map(s=><div key={s.id} className="grid grid-cols-[1fr_110px_80px] items-center rounded-xl bg-slate-950 p-3"><b className="grid grid-cols-[24px_1fr] items-center text-left"><span className="text-center">{s.wins===maxWins && maxWins>0 ? "🏆" : ""}</span><span>{s.name}</span></b><span className="text-center text-sm font-bold">{s.wins}勝 / {s.losses}敗</span><b className={`text-right ${s.points>0?"text-emerald-400":s.points<0?"text-rose-400":"text-slate-300"}`}>{signed(s.points)}pt</b></div>)})()}</div></section>)}</div>}
+ {tab==="settings"&&<div className="space-y-4"><section className="rounded-3xl border border-slate-800 bg-slate-900 p-4"><h2 className="font-black">過去成績を追加</h2><p className="mt-1 text-xs leading-5 text-slate-400">未入力は0として登録されます。プラスは数字だけ、マイナスは「-」に続けて数字を入力してください。</p><input type="date" value={pastDate} onChange={e=>setPastDate(e.target.value)} className="mt-3 h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-white [color-scheme:dark]"/><div className="mt-3 space-y-3">{PLAYERS.map(p=><div key={p.id} className="rounded-2xl bg-slate-950 p-3"><b>{p.name}</b><div className="mt-2 grid grid-cols-3 gap-2">{[["wins","勝"],["losses","敗"],["points","POINT"]].map(([field,label])=><label key={field} className="text-[11px] text-slate-400">{label}<input type="text" inputMode={field==="points" ? "text" : "numeric"} pattern={field==="points" ? "-?[0-9]*" : "[0-9]*"} placeholder="" value={pastInput[p.id][field]} onChange={e=>{const v=e.target.value; if (field==="points" ? /^-?\d*$/.test(v) : /^\d*$/.test(v)) setPastInput(old=>({...old,[p.id]:{...old[p.id],[field]:v}}));}} className="mt-1 h-11 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 text-white placeholder:text-slate-600"/></label>)}</div></div>)}</div><div className={`mt-3 rounded-xl p-3 text-center text-sm font-bold ${pastPointTotal===0?"bg-emerald-950 text-emerald-300":"bg-rose-950 text-rose-300"}`}>3人のPOINT合計：{signed(pastPointTotal)}PT {pastPointTotal===0?"✓":"（0PTになるよう確認）"}</div><button disabled={pastPointTotal!==0} onClick={registerPast} className="mt-3 h-14 w-full rounded-2xl bg-emerald-500 font-black text-slate-950 disabled:bg-slate-700 disabled:text-slate-400">この日の過去成績を登録</button></section>{pastRecords.length>0&&<section className="rounded-3xl border border-slate-800 bg-slate-900 p-4"><h2 className="font-black">登録済みの過去成績</h2><div className="mt-3 space-y-2">{pastRecords.map(r=><div key={r.id} className="flex items-center gap-3 rounded-xl bg-slate-950 p-3"><div className="min-w-0 flex-1"><b>{r.date}</b><div className="mt-1 text-xs text-slate-400">{PLAYERS.map(p=>`${p.name} ${r.stats[p.id].wins}勝/${r.stats[p.id].losses}敗 ${signed(r.stats[p.id].points)}PT`).join(" ・ ")}</div></div><button onClick={()=>{if(confirm(`${r.date}の過去成績を削除しますか？`))setPastRecords(old=>old.filter(x=>x.id!==r.id))}} className="p-2 text-slate-500"><Trash2 size={18}/></button></div>)}</div></section>}<section className="rounded-3xl border border-rose-950 bg-slate-900 p-4"><h2 className="font-black text-rose-300">データ管理</h2><p className="mt-1 text-xs text-slate-400">テストで登録したゲームと過去成績をすべて削除します。</p><button onClick={()=>{if(confirm("ゲーム記録と過去成績をすべて削除しますか？この操作は元に戻せません。")){setGames([]);setPastRecords([]);setSelected([]);setWinner("");setPoints(3)}}} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-rose-800 bg-rose-950 font-bold text-rose-300"><Trash2 size={18}/>テストデータをすべて削除</button></section></div>}
+ </main></div>}
